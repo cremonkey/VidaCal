@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nutrition Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#10B981', // Emerald 500
+                        secondary: '#D1FAE5', // Emerald 100 (Light Text)
+                        accent: '#34D399', // Emerald 400
+                        background: '#111827', // Gray 900 (Dark BG)
+                        surface: '#1F2937', // Gray 800 (Dark Surface)
+                        input: '#374151', // Gray 700
+                        // Scanner Specific Colors
+                        'app-bg': '#000000',
+                        'panel-bg': '#1c1c1e',
+                        'accent-cyan': '#00f0ff', // Neon cyan
+                        'accent-blue': '#007AFF', // iOS blue
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Glowing line animation */
+        @keyframes scan-line {
+            0% {
+                top: 10%;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: 90%;
+                opacity: 0;
+            }
+        }
+
+        .scan-line {
+            animation: scan-line 2s ease-in-out infinite;
+            background: linear-gradient(to right, transparent, #00f0ff, transparent);
+            height: 2px;
+            box-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff;
+        }
+
+        /* Grid background pattern */
+        .scan-grid {
+            background-image: linear-gradient(to right, rgba(0, 255, 255, 0.15) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Glowing corners */
+        .corner-bracket {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #00f0ff;
+            box-shadow: 0 0 10px #00f0ff, inset 0 0 10px #00f0ff;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body class="bg-background text-gray-100 font-sans min-h-screen flex flex-col">
+
+    <!-- App Header -->
+    <header class="bg-surface shadow-md sticky top-0 z-50 border-b border-gray-700">
+        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-100 flex items-center gap-2">
+                <i class="fa-solid fa-leaf text-primary"></i> NutriAI
+            </h1>
+            <button id="reset-btn" class="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                title="Reset Data">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-md mx-auto w-full px-4 py-6 relative">
+
+        <!-- Onboarding Section -->
+        <section id="onboarding-section" class="hidden animate-fade-in">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-gray-100 mb-2">Welcome to NutriAI</h2>
+                <p class="text-gray-400">Let's create your personalized nutrition plan.</p>
+            </div>
+
+            <form id="onboarding-form" class="space-y-5 bg-surface p-6 rounded-2xl shadow-lg border border-gray-700">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Name</label>
+                    <input type="text" id="user-name" required
+                        class="w-full px-4 py-2 rounded-xl bg-input border border-gray-600 text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        placeholder="Enter your name">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Age</label>
+                        <input type="number" id="user-age" required min="10" max="100"
+                            class="w-full px-4 py-2 rounded-xl bg-input border border-gray-600 text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                            placeholder="Years">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Gender</label>
+                        <select id="user-gender"
+                            class="w-full px-4 py-2 rounded-xl bg-input border border-gray-600 text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Weight (kg)</label>
+                        <input type="number" id="user-weight" required min="30" max="300"
+                            class="w-full px-4 py-2 rounded-xl bg-input border border-gray-600 text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                            placeholder="kg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Height (cm)</label>
+                        <input type="number" id="user-height" required min="100" max="250"
+                            class="w-full px-4 py-2 rounded-xl bg-input border border-gray-600 text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                            placeholder="cm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Chronic Disease</label>
+                    <select id="user-disease"
+                        class="w-full px-4 py-2 rounded-xl bg-input border border-gray-600 text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+                        <option value="None">None</option>
+                        <option value="Diabetes">Diabetes (Type 1/2)</option>
+                        <option value="Hypertension">Hypertension (High BP)</option>
+                        <option value="Heart Disease">Heart Disease</option>
+                        <option value="Kidney Disease">Kidney Disease</option>
+                    </select>
+                </div>
+
+                <button type="submit"
+                    class="w-full bg-primary hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/30 transition-all transform active:scale-95 flex justify-center items-center gap-2">
+                    Start Journey <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="hidden space-y-6 animate-fade-in">
+
+            <!-- Daily Summary Card -->
+            <div class="bg-surface rounded-3xl p-6 shadow-lg border border-gray-700 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+
+                <h2 class="text-2xl font-bold text-white mb-1">Hello, <span id="display-name"
+                        class="text-primary">User</span>!</h2>
+                <p class="text-sm text-gray-400 mb-6">Let's hit your goal today.</p>
+
+                <div class="flex items-end justify-between mb-2">
+                    <div>
+                        <span class="text-4xl font-bold text-white" id="calories-consumed">0</span>
+                        <span class="text-gray-400 text-sm"> / <span id="calories-goal">2000</span> kcal</span>
+                    </div>
+                    <div class="text-right">
+                        <span id="calories-remaining-label"
+                            class="text-xs font-semibold px-2 py-1 rounded bg-green-900/50 text-green-300 border border-green-800">On
+                            Track</span>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+                    <div id="calorie-progress"
+                        class="bg-gradient-to-r from-primary to-green-400 h-4 rounded-full transition-all duration-1000 ease-out w-0 relative">
+                        <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+                    </div>
+                </div>
+
+                <!-- AI Recommendation (Bilingual) -->
+                <div id="ai-recommendation-card" class="hidden mt-4 pt-4 border-t border-gray-700">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-robot text-primary text-sm"></i>
+                        <span class="text-xs font-semibold text-primary">AI Recommendation | توصية الذكاء
+                            الاصطناعي</span>
+                    </div>
+                    <p id="ai-recommendation-en" class="text-xs text-gray-400 mb-2 leading-relaxed">--</p>
+                    <p id="ai-recommendation-ar" dir="rtl" class="text-xs text-gray-500 text-right leading-relaxed">--
+                    </p>
+                </div>
+            </div>
+
+            <!-- Action Area -->
+            <div class="mt-8 text-center">
+                <input type="file" id="meal-image-input" accept="image/*" capture="environment" class="hidden">
+
+                <!-- Image Preview Container -->
+                <div id="image-preview-container"
+                    class="hidden mb-4 relative w-full h-64 bg-gray-800 rounded-2xl overflow-hidden shadow-md border border-gray-700">
+                    <img id="image-preview" class="w-full h-full object-cover" src="" alt="Meal Preview">
+                    <button id="cancel-image-btn"
+                        class="absolute top-2 right-2 bg-black/50 text-white rounded-full p-2 hover:bg-black/70 transition-colors">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading-indicator"
+                    class="hidden mb-4 p-6 bg-surface rounded-2xl shadow-sm border border-gray-700">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="w-10 h-10 border-4 border-gray-700 border-t-primary rounded-full animate-spin">
+                        </div>
+                        <p class="text-sm font-medium text-gray-400">Analyzing your meal...</p>
+                    </div>
+                </div>
+
+                <button id="scan-meal-btn"
+                    class="group relative inline-flex items-center justify-center gap-3 bg-primary text-white px-8 py-4 rounded-full font-semibold shadow-xl shadow-primary/20 active:scale-95 transition-all w-full sm:w-auto overflow-hidden hover:bg-green-500">
+                    <div
+                        class="absolute inset-0 bg-white/10 group-hover:translate-x-full transition-transform duration-500 skew-x-12">
+                    </div>
+                    <i class="fa-solid fa-camera text-xl group-hover:rotate-12 transition-transform"></i>
+                    <span>Scan Meal</span>
+                </button>
+            </div>
+
+            <!-- Daily Log -->
+            <div>
+                <h3 class="font-bold text-gray-300 text-lg mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-utensils text-gray-500 text-sm"></i> Today's Meals
+                </h3>
+                <div id="meal-list" class="space-y-3 pb-20">
+                    <!-- Meal items will be injected here -->
+                    <div id="empty-state" class="text-center py-10 opacity-50">
+                        <i class="fa-solid fa-plate-wheat text-4xl mb-3 text-gray-600"></i>
+                        <p class="text-sm text-gray-500">No meals logged yet today.</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Analysis Result Section (New) -->
+        <section id="analysis-section" class="hidden animate-fade-in pb-24">
+            <!-- Header -->
+            <div class="flex items-center gap-3 mb-6">
+                <button id="back-to-dash-btn" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-arrow-left text-xl"></i>
+                </button>
+                <h2 class="text-xl font-bold text-gray-100">Meal Analysis Report</h2>
+            </div>
+
+            <!-- Hero Image -->
+            <div class="relative w-full h-64 rounded-3xl overflow-hidden shadow-lg mb-6 group border border-gray-800">
+                <img id="analysis-image"
+                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src=""
+                    alt="Analyzed Meal">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                <div class="absolute bottom-4 left-4 text-white">
+                    <span
+                        class="bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium border border-white/10">
+                        <i class="fa-regular fa-clock mr-1"></i> <span id="analysis-time">--:--</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Total Calories Card -->
+            <div
+                class="bg-surface border border-gray-700 p-5 rounded-2xl shadow-lg mb-4 flex justify-between items-center">
+                <span class="text-gray-400 font-medium">Total Calories</span>
+                <span class="text-2xl font-bold text-white"><span id="analysis-calories">0</span> kcal</span>
+            </div>
+
+            <!-- Macros Section -->
+            <div class="bg-surface p-5 rounded-2xl shadow-sm border border-gray-700 mb-4 space-y-4">
+                <!-- Protein -->
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="font-medium text-gray-300"><i
+                                class="fa-solid fa-dumbbell text-green-500 mr-2"></i>Protein</span>
+                        <span class="text-gray-400"><span id="analysis-protein">0</span>g</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                        <div id="bar-protein" class="bg-green-500 h-2.5 rounded-full w-0 transition-all duration-1000">
+                        </div>
+                    </div>
+                </div>
+                <!-- Carbs -->
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="font-medium text-gray-300"><i
+                                class="fa-solid fa-bowl-rice text-teal-500 mr-2"></i>Carbs</span>
+                        <span class="text-gray-400"><span id="analysis-carbs">0</span>g</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                        <div id="bar-carbs" class="bg-teal-500 h-2.5 rounded-full w-0 transition-all duration-1000">
+                        </div>
+                    </div>
+                </div>
+                <!-- Fats -->
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="font-medium text-gray-300"><i
+                                class="fa-solid fa-droplet text-yellow-500 mr-2"></i>Fats</span>
+                        <span class="text-gray-400"><span id="analysis-fats">0</span>g</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                        <div id="bar-fats" class="bg-yellow-500 h-2.5 rounded-full w-0 transition-all duration-1000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Content -->
+            <div class="bg-surface p-5 rounded-2xl shadow-sm border border-gray-700 mb-4">
+                <h3 class="font-bold text-gray-200 mb-2">Identified Meal</h3>
+                <p id="analysis-food-name" class="text-gray-400 capitalize">--</p>
+            </div>
+
+            <!-- Health Warning (Conditional) -->
+            <div id="analysis-warning-card"
+                class="hidden bg-red-900/20 border border-red-900/50 p-5 rounded-2xl shadow-sm mb-4">
+                <div class="flex items-start gap-3">
+                    <div class="bg-red-900/50 p-2 rounded-lg text-red-400">
+                        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-red-400 mb-1">Health Warning</h3>
+                        <p id="analysis-warning-text" class="text-sm text-red-300 leading-relaxed">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Professional Nutrition Insights (Enhanced) -->
+            <div id="nutrition-insights-card"
+                class="bg-gradient-to-br from-blue-900/30 to-purple-900/20 border border-blue-800/50 p-5 rounded-2xl shadow-lg mb-20">
+                <!-- Header -->
+                <div class="flex items-center gap-3 mb-4 pb-3 border-b border-blue-800/30">
+                    <div class="bg-gradient-to-br from-blue-500 to-purple-500 p-2.5 rounded-xl text-white shadow-lg">
+                        <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-lg">AI Nutrition Insights</h3>
+                        <p class="text-xs text-blue-300">نصائح تغذوية ذكية | Smart Nutrition Tips</p>
+                    </div>
+                </div>
+
+                <!-- English Tips Section -->
+                <div class="mb-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span
+                            class="text-xs font-semibold px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30">English</span>
+                    </div>
+                    <div id="tips-en" class="space-y-2 text-sm text-blue-200">
+                        <!-- Tips will be injected here -->
+                        <p class="italic opacity-50">Loading tips...</p>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="border-t border-blue-800/30 my-4"></div>
+
+                <!-- Arabic Tips Section (RTL) -->
+                <div dir="rtl" class="text-right">
+                    <div class="flex items-center gap-2 mb-2 justify-end">
+                        <span
+                            class="text-xs font-semibold px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">العربية</span>
+                    </div>
+                    <div id="tips-ar" class="space-y-2 text-sm text-purple-200 font-['Cairo','sans-serif']">
+                        <!-- Arabic tips will be injected here -->
+                        <p class="italic opacity-50">جاري تحميل النصائح...</p>
+                    </div>
+                </div>
+
+                <!-- Solutions Section -->
+                <div class="mt-4 pt-4 border-t border-blue-800/30">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-lightbulb text-yellow-400"></i>
+                        <span class="font-semibold text-yellow-300 text-sm">Suggested Solutions | حلول مقترحة</span>
+                    </div>
+                    <div id="solutions-list" class="space-y-2">
+                        <!-- Solutions will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Action Button -->
+            <div class="fixed bottom-6 left-0 right-0 px-4 max-w-md mx-auto z-40">
+                <button id="confirm-log-btn"
+                    class="w-full bg-primary hover:bg-green-600 text-white font-bold py-4 rounded-2xl shadow-xl shadow-primary/30 transition-transform active:scale-95 text-lg">
+                    Log Meal
+                </button>
+            </div>
+        </section>
+
+        <!-- Scanner Section (New) -->
+        <section id="scanner-section"
+            class="hidden fixed inset-0 z-50 bg-app-bg text-white flex flex-col overflow-hidden font-sans animate-fade-in">
+            <!-- Header -->
+            <header
+                class="bg-panel-bg rounded-b-3xl px-4 pt-4 pb-6 flex items-center justify-between shadow-lg z-20 relative shrink-0">
+                <button id="close-scanner-btn"
+                    class="w-10 h-10 flex items-center justify-center text-white hover:text-gray-300 transition-colors">
+                    <i class="fas fa-chevron-left text-xl"></i>
+                </button>
+                <h1 class="text-xl font-semibold tracking-wide">AI Meal Scanner</h1>
+                <div class="w-10 h-10"></div>
+            </header>
+
+            <!-- Main Content (Viewfinder) -->
+            <main class="flex-grow flex flex-col relative">
+                <!-- Viewfinder Area -->
+                <div
+                    class="relative flex-grow m-4 rounded-3xl overflow-hidden bg-gray-900 border border-gray-800 shadow-inner group">
+                    <!-- Live Camera Feed Placeholder -->
+                    <video id="camera-feed" class="absolute inset-0 w-full h-full object-cover opacity-90 hidden"
+                        autoplay playsinline></video>
+                    <!-- Fallback Image if no camera -->
+                    <div class="absolute inset-0 w-full h-full bg-black/50 flex items-center justify-center">
+                        <i class="fa-solid fa-camera text-4xl text-gray-600"></i>
+                    </div>
+
+                    <!-- Scanning UI Overlay -->
+                    <div class="absolute inset-0 z-10 p-8 flex flex-col justify-between pointer-events-none">
+                        <!-- Grid Pattern -->
+                        <div class="absolute inset-0 scan-grid opacity-30"></div>
+                        <!-- Animated Scan Line -->
+                        <div class="absolute left-0 right-0 top-1/2 scan-line z-20"></div>
+                        <!-- Top Corners -->
+                        <div class="relative w-full h-full">
+                            <div class="corner-bracket top-0 left-0 border-r-0 border-b-0 rounded-tl-xl"></div>
+                            <div class="corner-bracket top-0 right-0 border-l-0 border-b-0 rounded-tr-xl"></div>
+                            <div class="corner-bracket bottom-0 left-0 border-r-0 border-t-0 rounded-bl-xl"></div>
+                            <div class="corner-bracket bottom-0 right-0 border-l-0 border-t-0 rounded-br-xl"></div>
+                        </div>
+                        <!-- Floating Instruction Pill -->
+                        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-max">
+                            <div
+                                class="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-lg">
+                                <p class="text-sm font-medium text-white flex items-center gap-2">
+                                    <i class="fas fa-expand-arrows-alt text-accent-cyan text-xs"></i>
+                                    Point at your meal to analyze
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera Controls -->
+                <div
+                    class="bg-panel-bg rounded-t-3xl pt-6 pb-2 px-6 flex flex-col items-center justify-center shrink-0 shadow-[0_-5px_20px_rgba(0,0,0,0.3)] z-20">
+                    <div class="grid grid-cols-3 items-center w-full max-w-sm mb-4">
+                        <!-- Upload Gallery Button -->
+                        <div class="flex justify-center">
+                            <div class="flex flex-col items-center gap-2 w-20 cursor-pointer" id="scanner-gallery-btn">
+                                <button
+                                    class="w-12 h-12 rounded-full flex items-center justify-center border border-gray-600 hover:bg-gray-600 transition-colors bg-[#3a3a3c]">
+                                    <i class="fas fa-image text-white text-xl"></i>
+                                </button>
+                                <span class="text-[10px] text-gray-400 text-center leading-tight">Upload</span>
+                            </div>
+                        </div>
+                        <!-- Shutter Button -->
+                        <div class="flex justify-center">
+                            <button id="scanner-shutter-btn"
+                                class="w-20 h-20 rounded-full border-4 border-accent-cyan p-1 flex items-center justify-center transition-transform active:scale-95 shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.6)]">
+                                <div class="w-full h-full bg-white rounded-full"></div>
+                            </button>
+                        </div>
+                        <!-- Spacer -->
+                        <div></div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Bottom Nav -->
+            <nav class="bg-panel-bg border-t border-gray-800 pb-8 pt-2 px-6 shrink-0 z-30">
+                <ul class="flex justify-between items-center text-gray-500">
+                    <li class="flex-1 flex flex-col items-center gap-1"><i class="fas fa-home text-xl"></i><span
+                            class="text-[10px]">Home</span></li>
+                    <li class="flex-1 flex flex-col items-center gap-1 text-white"><i
+                            class="fas fa-utensils text-xl"></i><span class="text-[10px]">Scanner</span></li>
+                    <li class="flex-1 flex flex-col items-center gap-1"><i class="fas fa-chart-bar text-xl"></i><span
+                            class="text-[10px]">Progress</span></li>
+                    <li class="flex-1 flex flex-col items-center gap-1"><i class="fas fa-user text-xl"></i><span
+                            class="text-[10px]">Profile</span></li>
+                </ul>
+            </nav>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
